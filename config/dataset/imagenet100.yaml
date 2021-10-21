@@ -1,0 +1,9 @@
+# @package _group_
+name: 'imagenet100'
+
+n_classes: 100
+n_lab: 130
+incremental_step: 10
+
+#unlab: full, disjoint, equal or places365
+unlab_scenario: disjoint

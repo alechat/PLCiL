@@ -1,0 +1,6 @@
+# @package _group_
+name: cifar100
+
+n_classes: 100
+n_lab: 500
+incremental_step: 10

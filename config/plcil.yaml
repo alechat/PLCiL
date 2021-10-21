@@ -1,0 +1,24 @@
+hydra:
+  run:
+    dir: outputs/${hydra.job.name}_${dataset.name}/${now:%Y-%m-%d}/${now:%H-%M-%S}
+   
+defaults:
+    - dataset: cifar100
+    - datasetpath: spiro
+
+model: 'lwrn28-8'
+    
+params:
+    epochs: 150
+    memory: 2000
+    batch_size: 32
+    mu: 7
+    lr: .03
+    lamb: 1.
+    weight_decay: 0.0001
+    tau: 0.8
+    size_unlab: 100000
+
+seed: 1993
+num_workers: 8
+gpu: 0
