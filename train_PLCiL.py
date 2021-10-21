@@ -64,16 +64,16 @@ def main_plcil(cfg: DictConfig):
     topk = (1,)
     cta = CTAugment()
     if dataset_name == 'cifar100':
-        unlab_dataset = datasets.get_imagenet32(cfg.datafolder.imagenet32, cta)
+        unlab_dataset = datasets.get_imagenet32(cfg.datasetpath.imagenet32, cta)
     elif dataset_name == 'imagenet100':
         topk = (1,5,)
         if cfg.dataset.unlab == 'places365':
-            unlab_dataset = datasets.get_Places365_unlab(cfg.datafolder.places365, cta)
+            unlab_dataset = datasets.get_Places365_unlab(cfg.datasetpath.places365, cta)
         else:
             if cfg.dataset.unlab == 'equal':
                 idx_dic = datasets.split_datasets(cfg.dataset.n_classes, 1300)
             else:
-                unlab_dataset = datasets.get_ImageNet100_unlab(cfg.datafolder.imagenet, cta, mode=cfg.dataset.unlab, idx_dic=idx_dic)
+                unlab_dataset = datasets.get_ImageNet100_unlab(cfg.datasetpath.imagenet, cta, mode=cfg.dataset.unlab, idx_dic=idx_dic)
     
     test_classes = []
     
@@ -85,11 +85,11 @@ def main_plcil(cfg: DictConfig):
         
         ### DATA LOADERS
         if dataset_name == 'cifar100':
-            lab_dataset = datasets.get_cifar_lab(cfg.datafolder.cifar, s, cfg.dataset.n_lab, idx_dic, cta=cta, permute=permute)
-            test_dataset = datasets.get_cifar_val(cfg.datafolder.cifar, test_classes, permute=permute)
+            lab_dataset = datasets.get_cifar_lab(cfg.datasetpath.cifar, s, cfg.dataset.n_lab, idx_dic, cta=cta, permute=permute)
+            test_dataset = datasets.get_cifar_val(cfg.datasetpath.cifar, test_classes, permute=permute)
         elif dataset_name == 'imagenet100':
-            lab_dataset = datasets.get_ImageNet_lab(cfg.datafolder.imagenet, s, cfg.dataset.n_lab, idx_dic, cta=cta, permute=permute)
-            test_dataset = datasets.get_ImageNet_val(cfg.datafolder.imagenet, test_classes, permute=permute)
+            lab_dataset = datasets.get_ImageNet_lab(cfg.datasetpath.imagenet, s, cfg.dataset.n_lab, idx_dic, cta=cta, permute=permute)
+            test_dataset = datasets.get_ImageNet_val(cfg.datasetpath.imagenet, test_classes, permute=permute)
         
         trainer.combine_dataset_with_exemplars(lab_dataset)
         
@@ -131,7 +131,7 @@ def main_plcil(cfg: DictConfig):
         
         trainer.eval()
         with torch.no_grad():
-            acc, correct, _ = test(trainer, test_loader, nb_classes=trainer.n_classes, topk=topk, device=device)
+            acc, correct = test(trainer, test_loader, nb_classes=trainer.n_classes, topk=topk, device=device)
             if len(acc) == 1:
                 log.info('Session {} ({} classes) DONE! Final accuracy: {:.2f} [{}/{}]'.format(session_id, trainer.n_known, acc[0], correct[0], len(test_loader.dataset)))
             else:

@@ -4,7 +4,7 @@ hydra:
    
 defaults:
     - dataset: cifar100
-    - datasetpath: spiro
+    - datasetpath: worksation
 
 model: 'lwrn28-8'
     
