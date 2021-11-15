@@ -18,10 +18,10 @@ def losses_pseudolabeling(n_known, logits, weak_values, weak_labels, old_weak_va
     selfsup_loss = F.cross_entropy(logits, weak_labels, reduction='none')
     selfsup_loss = selfsup_loss[weak_values >= tau].sum() / logits.size(0)
     
-    old_selfsup_loss = F.cross_entropy(logits, old_weak_labels, reduction='none')
-    old_selfsup_loss = old_selfsup_loss[old_weak_values >= tau].sum() / logits.size(0)
+    kd_selfsup_loss = F.cross_entropy(logits, old_weak_labels, reduction='none')
+    kd_selfsup_loss = kd_selfsup_loss[old_weak_values >= tau].sum() / logits.size(0)
     
-    return selfsup_loss + alpha * old_selfsup_loss
+    return selfsup_loss + alpha * kd_selfsup_loss
 
 def compute_loss_PLCiL(n_known, old_model, unlab_images, logits, weak_values, weak_labels, tau):
     if n_known == 0:
@@ -100,7 +100,6 @@ def training_session(trainer, session_id, num_epochs, num_steps_per_epoch, optim
     for epoch in range(1, 1+num_epochs):
         trainer.train()
         data_seen = 0
-        unlab_seen = 0
         unlab_iterator = iter(train_loader_unlab)
         prog_bar = tqdm(range(num_steps_per_epoch))
         lab_iterator = enumerate(train_loader_lab)
@@ -111,7 +110,6 @@ def training_session(trainer, session_id, num_epochs, num_steps_per_epoch, optim
             x_unlab_weak, x_unlab_strong, _ = next(unlab_iterator)
             batch_idx, (x_lab_weak, x_lab_strong, labels, policies_lab) = next(lab_iterator)
             data_seen += len(labels)
-            unlab_seen += len(x_unlab_weak)
             
             x_unlab_weak, x_unlab_strong = x_unlab_weak.to(device), x_unlab_strong.to(device)
             x_lab_weak, x_lab_strong, labels = x_lab_weak.to(device), x_lab_strong.to(device), labels.long().to(device)

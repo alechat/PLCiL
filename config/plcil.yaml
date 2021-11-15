@@ -1,12 +1,12 @@
 hydra:
   run:
-    dir: outputs/${hydra.job.name}_${dataset.name}/${now:%Y-%m-%d}/${now:%H-%M-%S}
+    dir: outputs/${hydra.job.name}_${dataset.name}/${now:%Y-%m-%d}_${now:%H-%M-%S}
    
 defaults:
     - dataset: cifar100
-    - datasetpath: worksation
+    - datasetpath: workstation
 
-model: 'lwrn28-8'
+model: 'wrn28-8'
     
 params:
     epochs: 150
@@ -19,6 +19,9 @@ params:
     tau: 0.8
     size_unlab: 100000
 
-seed: 1993
+seed: 12345
 num_workers: 8
 gpu: 0
+save_model: False
+
+

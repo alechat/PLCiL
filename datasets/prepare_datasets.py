@@ -15,7 +15,6 @@ from datasets.Places365 import Places365
 mean_imagenet, std_imagenet = (0.485, 0.456, 0.406), (0.229, 0.224, 0.225)
 
 
-### Data Augmentation
 def get_standard_transforms(img_size=32, mean=(0.5, 0.5, 0.5), std=(0.5, 0.5, 0.5), is_train=True):
     if is_train:
         if img_size == 224:
@@ -40,7 +39,6 @@ def get_standard_transforms(img_size=32, mean=(0.5, 0.5, 0.5), std=(0.5, 0.5, 0.
     return trans
 
 
-### Core classes
 def collate_policy(batch):
     data = list(zip(*batch))
     weak_data = torch.stack(data[0], 0)
@@ -58,11 +56,10 @@ def split_datasets(num_classes, total_per_class):
     return idx_dic
 
 class CommonDataset(Dataset):
-    def __init__(self, data, labels, is_train=True, img_size=32, mean=(0.5, 0.5, 0.5), std=(0.5, 0.5, 0.5), transpose=False, loader=None):
+    def __init__(self, data, labels, is_train=True, img_size=32, mean=(0.5, 0.5, 0.5), std=(0.5, 0.5, 0.5), loader=None):
         super(CommonDataset, self).__init__()
         self.data, self.labels = np.array(data), labels
         self.is_train = is_train
-        self.transpose = transpose
         self.loader = loader
         assert len(self.data) == len(self.labels)
         
@@ -78,10 +75,7 @@ class CommonDataset(Dataset):
         if self.loader:
             im = self.loader(im)
         else:
-            if self.transpose:
-                im = Image.fromarray(np.transpose(im, (1, 2, 0)))
-            else:
-                im = Image.fromarray(im)
+            im = Image.fromarray(im)
         im = self.trans(im)
         return im, lb
 
@@ -116,39 +110,36 @@ class CommonDataset(Dataset):
         self.labels = self.labels + labels
         self.classes = list(set(self.labels))
 
-class AugmentedDataset(CommonDataset):
-    def __init__(self, data, labels, cta=None, is_train=True, probe=True, img_size=32, mean=(0.5, 0.5, 0.5), std=(0.5, 0.5, 0.5), transpose=False, loader=None):
-        super(AugmentedDataset, self).__init__(data, labels, is_train=is_train, img_size=img_size, mean=mean, std=std, transpose=transpose, loader=loader)
+class CTAugmentDataset(CommonDataset):
+    def __init__(self, data, labels, cta, probe=True, img_size=32, mean=(0.5, 0.5, 0.5), std=(0.5, 0.5, 0.5), loader=None):
+        super(CTAugmentDataset, self).__init__(data, labels, is_train=True, img_size=img_size, mean=mean, std=std, loader=loader)
         self.probe = probe
         
-        if is_train:
-            if img_size == 224:
-                trans_size = [T.RandomResizedCrop(224)]
-            else:
-                trans_size = [T.RandomCrop(img_size, padding=int(img_size*0.125))]
-            self.cta = cta
-            self.trans_weak = get_standard_transforms(img_size, mean, std, is_train)
-            
-            self.trans_strong_1 = T.Compose(trans_size + [
-                T.RandomHorizontalFlip(p=0.5),])
-            self.trans_strong_2 = T.Compose([
-                T.ToTensor(),
-                T.Normalize(mean, std),
-            ])
-    
-            self.cutout = T.Compose([
-                    T.RandomErasing(p=1., scale=(0.02, 0.25), ratio=(1,1)),
-            ])
-    
+        if img_size == 224:
+            trans_size = [T.RandomResizedCrop(224)]
         else:
-            self.trans = get_standard_transforms(img_size, mean, std, is_train)
+            trans_size = [T.RandomCrop(img_size, padding=int(img_size*0.125))]
+        self.cta = cta
+        self.weak_transform = get_standard_transforms(img_size, mean, std, is_train=True)
+        
+        self.strong_transform_1 = T.Compose(trans_size + [
+            T.RandomHorizontalFlip(p=0.5),])
+        self.strong_transform_2 = T.Compose([
+            T.ToTensor(),
+            T.Normalize(mean, std),
+        ])
+
+        self.cutout = T.Compose([
+                T.RandomErasing(p=1., scale=(0.02, 0.25), ratio=(1,1)),
+        ])
+    
     
    
     def cta_augment(self, img):
-        img = self.trans_strong_1(img)
+        img = self.strong_transform_1(img)
         policy = self.cta.policy(probe=self.probe)
         img = apply(img, policy)
-        img = self.trans_strong_2(img)
+        img = self.strong_transform_2(img)
         img = self.cutout(img)
         return img, policy
     
@@ -157,9 +148,8 @@ class AugmentedDataset(CommonDataset):
         data = self.data[idx]
         labels = list(np.asarray(self.labels)[idx])
         
-        return AugmentedDataset(data, labels, cta=self.cta, is_train=self.is_train, probe=self.probe, 
-                                img_size=self.img_size, mean=self.mean, std=self.std, 
-                                transpose=self.transpose, loader=self.loader)
+        return CTAugmentDataset(data, labels, cta=self.cta, probe=self.probe, 
+                                img_size=self.img_size, mean=self.mean, std=self.std, loader=self.loader)
         
         
     def __getitem__(self, idx):
@@ -167,23 +157,13 @@ class AugmentedDataset(CommonDataset):
         if self.loader:
             im = self.loader(im)
         else:
-            if self.transpose:
-                im = Image.fromarray(np.transpose(im, (1, 2, 0)))
-            else:
-                im = Image.fromarray(im)
-        if self.is_train:
-            if self.cta is None:
-                strong_data = self.trans_strong_1(im)
-                strong_data = self.trans_strong_2(strong_data)
-                return strong_data, lb
-            weak_data = self.trans_weak(im)
-            strong_data, policy = self.cta_augment(im)
-            if self.probe:
-                return weak_data, strong_data, lb, policy
-            else: 
-                return weak_data, strong_data, lb
-        else:
-            return self.trans(im), lb
+            im = Image.fromarray(im)
+        weak_data = self.weak_transform(im)
+        strong_data, policy = self.cta_augment(im)
+        if self.probe:
+            return weak_data, strong_data, lb, policy
+        else: 
+            return weak_data, strong_data, lb
 
         
         
@@ -225,11 +205,11 @@ def split_unlab_dataset(dset, num_lab_per_class, cta, idx_dic, img_size=32,
     loader = None
     if image_folder:
         loader = pil_loader
-    return AugmentedDataset(data_unlab, targets_unlab, cta=cta, is_train=True, probe=False, img_size=img_size, mean=mean, std=std, loader=loader)
+    return CTAugmentDataset(data_unlab, targets_unlab, cta=cta, probe=False, img_size=img_size, mean=mean, std=std, loader=loader)
 
 
 def split_lab_dataset(dset, num_lab_per_class, classes, cta=None, idx_dic=None, permute=None, img_size=32,
-                      mean=(0.5, 0.5, 0.5), std=(0.5, 0.5, 0.5), transpose=False, image_folder=False, supervised_only=False):
+                      mean=(0.5, 0.5, 0.5), std=(0.5, 0.5, 0.5), image_folder=False, supervised_only=False):
     if permute is not None:
         classes = permute[classes[0]:classes[0]+len(classes)]
     per_class_data = {i:[] for i in classes}
@@ -266,12 +246,12 @@ def split_lab_dataset(dset, num_lab_per_class, classes, cta=None, idx_dic=None, 
     if image_folder:
         loader = pil_loader
     if supervised_only:
-        return CommonDataset(data_lab, targets_lab, is_train=True, img_size=img_size, mean=mean, std=std, transpose=transpose, loader=loader)
+        return CommonDataset(data_lab, targets_lab, is_train=True, img_size=img_size, mean=mean, std=std, loader=loader)
     
-    return AugmentedDataset(data_lab, targets_lab, cta=cta, is_train=True, probe=True, img_size=img_size, mean=mean, std=std, transpose=transpose, loader=loader)
+    return CTAugmentDataset(data_lab, targets_lab, cta=cta, probe=True, img_size=img_size, mean=mean, std=std, loader=loader)
 
 def get_val_dataset(dset_test, classes_test, permute=None, img_size=32, 
-                    mean=(0.5, 0.5, 0.5), std=(0.5, 0.5, 0.5), transpose=False, image_folder=False):
+                    mean=(0.5, 0.5, 0.5), std=(0.5, 0.5, 0.5), image_folder=False):
     if permute is not None:
         classes_test = permute[classes_test[0]:classes_test[0]+len(classes_test)]
     per_class_data_test = {i:[] for i in classes_test}
@@ -299,7 +279,7 @@ def get_val_dataset(dset_test, classes_test, permute=None, img_size=32,
     if image_folder:
         loader = pil_loader
     
-    return AugmentedDataset(data_test, targets_test, is_train=False, img_size=img_size, mean=mean, std=std, transpose=transpose, loader=loader)
+    return CommonDataset(data_test, targets_test, is_train=False, img_size=img_size, mean=mean, std=std, loader=loader)
 
 
 ### CIFAR100 experiments
@@ -309,7 +289,7 @@ def get_cifar_unlab(root, num_lab_per_class, idx_dic, cta):
     del dset
     return dset_unlab
 
-def get_cifar_lab(root, classes, num_lab_per_class, idx_dic, cta=None, permute=None, supervised_only=False):
+def get_cifar_lab(root, classes, num_lab_per_class, idx_dic, cta, permute=None, supervised_only=False):
     dset = CIFAR100(root, train=True, transform=None, target_transform=None, download=True)
     dset_lab = split_lab_dataset(dset, num_lab_per_class, classes, cta, idx_dic=idx_dic, permute=permute, img_size=32, supervised_only=supervised_only)
     del dset
@@ -322,7 +302,7 @@ def get_cifar_val(root, classes_test, permute=None):
 
 def get_imagenet32(root, cta):
     dset = ImageNet32(root, classes=range(1000), train=True, transform=None, target_transform=None, permute=None)
-    dset_unlab = AugmentedDataset(dset.data, dset.targets, cta=cta, is_train=True, probe=False, img_size=32)
+    dset_unlab = CTAugmentDataset(dset.data, dset.targets, cta=cta, probe=False, img_size=32)
     return dset_unlab
 
 
@@ -338,7 +318,7 @@ def get_ImageNet100_unlab(root, cta, unlabeled_scenario='disjoint', idx_dic=None
         if idx_dic:
             dset_unlab = split_unlab_dataset(dset, num_lab_per_class, cta, idx_dic=idx_dic, img_size=224, mean=mean, std=std, image_folder=True)
             return dset_unlab
-    dset_unlab = AugmentedDataset(dset.data, dset.targets, cta=cta, is_train=True, probe=False, img_size=224, mean=mean, std=std, loader=pil_loader)
+    dset_unlab = CTAugmentDataset(dset.data, dset.targets, cta=cta, probe=False, img_size=224, mean=mean, std=std, loader=pil_loader)
     return dset_unlab
 
 def get_ImageNet_unlab(root, num_lab_per_class, idx_dic, cta):
@@ -346,7 +326,7 @@ def get_ImageNet_unlab(root, num_lab_per_class, idx_dic, cta):
     dset_unlab = split_unlab_dataset(dset, num_lab_per_class, cta, idx_dic=idx_dic, img_size=224, mean=mean_imagenet, std=std_imagenet, image_folder=True)
     return dset_unlab
 
-def get_ImageNet_lab(root, classes, num_lab_per_class, idx_dic, cta=None, permute=None, supervised_only=False):
+def get_ImageNet_lab(root, classes, num_lab_per_class, idx_dic, cta, permute=None, supervised_only=False):
     dset = ImageNet(root, classes=list(range(1000)), train=True)
     dset_lab = split_lab_dataset(dset, num_lab_per_class, classes, cta, idx_dic=idx_dic, permute=permute, img_size=224, mean=mean_imagenet, std=std_imagenet, image_folder=True, supervised_only=supervised_only)
     return dset_lab
@@ -358,5 +338,5 @@ def get_ImageNet_val(root, classes_test, permute=None):
 
 def get_Places365_unlab(root, cta):
     dset = Places365(root, classes=list(range(365)), train=True)
-    dset_unlab = AugmentedDataset(dset.data, dset.targets, cta=cta, is_train=True, probe=False, img_size=224, mean=mean_imagenet, std=std_imagenet, loader=pil_loader)
+    dset_unlab = CTAugmentDataset(dset.data, dset.targets, cta=cta, probe=False, img_size=224, mean=mean_imagenet, std=std_imagenet, loader=pil_loader)
     return dset_unlab

@@ -1,11 +1,9 @@
 # PLCiL
-Implementation of the Pseudo-Labeling for Class incremental Learning
+Implementation of the Pseudo-Labeling for Class incremental Learning.
+
+Link to paper: TBA (Waiting for the official link from BMVC)
 
 ![PLCiL](images/PLCiL.png)
-
-
-# Work In Progress
-Documentation will be completed by the start of the conference: November 22, 2021.
 
 # Requirements
 
@@ -13,10 +11,50 @@ Documentation will be completed by the start of the conference: November 22, 202
 * PyTorch >= 1.9
 * Hydra >= 1.1 
 
+Other packages can be found in 
+
 # Datasets
+
+The repertory of each dataset should be specified in a yaml file located in the directory `./config/datasetpath/`.
+We provide an example with `./config/datasetpath/workstation.yaml`.
+
+CIFAR100 is downladed automatically to the specified path. 
+
+IMAGENET and Places-365 can be downloaded from the official sources. 
+
+Note that for IMAGENET downsampled to 32x32, you should download the npz version.
 
 
 # Training
+The hyperparameter and output management relies on the Hydra package. All configurations files are in .yaml and stored in `./config/`.
+The choice of hyperparameters is detailled in appendix A.1. The class order depends of the seed.
+
+To train on CIFAR-100-full using a WideResnet-28-8 as backbone:
+```bash
+python train_PLCiL.py dataset=cifar100 dataset.n_lab=500 dataset.incremental_step=10 datasetpath=workstation \
+    model=wrn28-8 params.epochs=150 params.memory=2000 params.batch_size=32 params.mu=7 params.lr=0.03 \
+    params.lamb=1.0 params.weight_decay=0.0001 params.tau=0.8 params.size_unlab=100000 \
+    seed=12345 num_workers=8 gpu=0 save_model=False
+```
+
+
+To train on CIFAR-100-20% using a WideResnet-28-8 as backbone:
+```bash
+python train_PLCiL.py dataset=cifar100 dataset.n_lab=100 dataset.incremental_step=10 datasetpath=workstation \
+    model=wrn28-8 params.epochs=150 params.memory=2000 params.batch_size=32 params.mu=7 params.lr=0.03 \
+    params.lamb=1.0 params.weight_decay=0.0001 params.tau=0.8 params.size_unlab=100000 \
+    seed=12345 num_workers=8 gpu=0 save_model=False
+```
+
+To train on IMAGENET-100-10% using a ResNet-18 as backbone. 
+```bash
+python train_PLCiL.py dataset=imagenet100 dataset.unlab_scenario=disjoint dataset.n_lab=130 dataset.incremental_step=10 datasetpath=workstation \
+    model=resnet18 params.epochs=70 params.memory=2000 params.batch_size=32 params.mu=7 params.lr=0.03 \
+    params.lamb=3.0 params.weight_decay=0.0001 params.tau=0.7 params.size_unlab=100000 \
+    seed=12345 num_workers=8 gpu=0 save_model=False
+```
+By default, we use the scenario "unlab_scenario=disjoint" meaning that the unlabeled data is built from IMAGENET-1000 without the classes from IMAGENET-100.
+To try different scenarios as showcased in table 3, use "unlab_scenario=disjoint, equal, full or places365".
 
 
 # Citation
