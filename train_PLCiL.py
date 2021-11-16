@@ -73,13 +73,13 @@ def main_plcil(cfg: DictConfig):
         unlab_dataset = datasets.get_imagenet32(cfg.datasetpath.imagenet32, cta)
     elif dataset_name == 'imagenet100':
         topk = (1,5,)
-        if cfg.dataset.unlab == 'places365':
+        if cfg.dataset.unlab_scenario == 'places365':
             unlab_dataset = datasets.get_Places365_unlab(cfg.datasetpath.places365, cta)
         else:
-            if cfg.dataset.unlab == 'equal':
+            if cfg.dataset.unlab_scenario == 'equal':
                 idx_dic = datasets.split_datasets(cfg.dataset.n_classes, 1300)
             else:
-                unlab_dataset = datasets.get_ImageNet100_unlab(cfg.datasetpath.imagenet, cta, mode=cfg.dataset.unlab, idx_dic=idx_dic)
+                unlab_dataset = datasets.get_ImageNet100_unlab(cfg.datasetpath.imagenet, cta, mode=cfg.dataset.unlab_scenario, idx_dic=idx_dic)
     
     
     # Incremental training process
