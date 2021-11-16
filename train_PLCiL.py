@@ -79,7 +79,7 @@ def main_plcil(cfg: DictConfig):
             if cfg.dataset.unlab_scenario == 'equal':
                 idx_dic = datasets.split_datasets(cfg.dataset.n_classes, 1300)
             else:
-                unlab_dataset = datasets.get_ImageNet100_unlab(cfg.datasetpath.imagenet, cta, mode=cfg.dataset.unlab_scenario, idx_dic=idx_dic)
+                unlab_dataset = datasets.get_ImageNet100_unlab(cfg.datasetpath.imagenet, cta, unlabeled_scenario=cfg.dataset.unlab_scenario, idx_dic=idx_dic)
     
     
     # Incremental training process
