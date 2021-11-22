@@ -1,7 +1,7 @@
 # PLCiL
 Implementation of the Pseudo-Labeling for Class incremental Learning.
 
-Link to paper: TBA (Waiting for the official link from BMVC)
+Link to paper: [[BMVC website]](https://www.bmvc2021-virtualconference.com/conference/papers/paper_1327.html)
 
 ![PLCiL](images/PLCiL.png)
 
